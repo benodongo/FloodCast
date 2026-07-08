@@ -24,3 +24,7 @@ Thumbs.db
 prototype/outputs/predictions_*.csv
 *.joblib
 *.pkl
+
+# ...but keep the committed pretrained model artifact for zero-train startup
+!prototype/app/artifacts/
+!prototype/app/artifacts/service_state.joblib

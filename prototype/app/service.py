@@ -9,6 +9,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import joblib
 import numpy as np
 import pandas as pd
 
@@ -27,6 +28,31 @@ from src.ensemble import monte_carlo_forecast  # noqa: E402
 from src import evaluation as ev  # noqa: E402
 from src.chokepoints import CHOKEPOINTS  # noqa: E402
 
+# Pretrained-model cache. Built once with ``python -m app.service`` and committed
+# so the live server loads instantly instead of retraining on every boot.
+ARTIFACT_DIR = Path(__file__).resolve().parent / "artifacts"
+ARTIFACT_PATH = ARTIFACT_DIR / "service_state.joblib"
+
+# Attributes that fully describe a trained service (everything the query methods
+# read). Pickled together so a cached build restores identical behaviour.
+_STATE_ATTRS = [
+    "threshold", "forcing", "truth", "feats", "targets",
+    "index", "n", "n_train", "train_idx", "test_idx",
+    "models", "pred", "metrics", "X", "feat_names",
+    "grc_only_rmse", "choke_depth", "choke_weight",
+]
+
+
+def _lib_versions() -> dict:
+    """Signature of the libraries the pickle depends on for binary compat."""
+    import sklearn
+    return {
+        "numpy": np.__version__,
+        "pandas": pd.__version__,
+        "sklearn": sklearn.__version__,
+        "python": f"{sys.version_info.major}.{sys.version_info.minor}",
+    }
+
 
 class FloodForecastService:
     """Loads data, trains models and answers dashboard queries."""
@@ -38,8 +64,12 @@ class FloodForecastService:
     # ------------------------------------------------------------------ #
     # Startup / training
     # ------------------------------------------------------------------ #
-    def build(self) -> None:
+    def build(self, force: bool = False) -> None:
         if self.ready:
+            return
+        if not force and self._load_cache():
+            self.ready = True
+            print(f"Loaded pretrained models from {ARTIFACT_PATH.name}.", flush=True)
             return
         self.forcing = build_forcing()
         self.truth = generate_truth(self.forcing)
@@ -103,6 +133,38 @@ class FloodForecastService:
         mean_depth = self.choke_depth.mean(axis=0)
         self.choke_weight = mean_depth / (mean_depth.max() + 1e-9)
         self.ready = True
+        try:
+            self._save_cache()
+        except Exception as exc:  # pragma: no cover - caching is best-effort
+            print(f"Could not write model cache: {exc}", flush=True)
+
+    # ------------------------------------------------------------------ #
+    # Pretrained-model cache
+    # ------------------------------------------------------------------ #
+    def _save_cache(self) -> None:
+        ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "versions": _lib_versions(),
+            "state": {a: getattr(self, a) for a in _STATE_ATTRS},
+        }
+        joblib.dump(payload, ARTIFACT_PATH, compress=3)
+        print(f"Saved model cache to {ARTIFACT_PATH}", flush=True)
+
+    def _load_cache(self) -> bool:
+        if not ARTIFACT_PATH.exists():
+            return False
+        try:
+            payload = joblib.load(ARTIFACT_PATH)
+        except Exception as exc:
+            print(f"Ignoring model cache (load failed): {exc}", flush=True)
+            return False
+        if payload.get("versions") != _lib_versions():
+            print("Ignoring model cache (library version mismatch); retraining.",
+                  flush=True)
+            return False
+        for attr, value in payload["state"].items():
+            setattr(self, attr, value)
+        return True
 
     # ------------------------------------------------------------------ #
     # Queries
@@ -422,3 +484,10 @@ class FloodForecastService:
 
 
 SERVICE = FloodForecastService()
+
+
+if __name__ == "__main__":
+    # Build the pretrained artifact for committing: `python -m app.service`.
+    print("Building and caching model state ...", flush=True)
+    SERVICE.build(force=True)
+    print("Done.", flush=True)
