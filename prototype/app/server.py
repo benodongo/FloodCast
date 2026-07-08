@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
@@ -20,6 +21,11 @@ app = Flask(__name__, template_folder=str(APP_DIR / "templates"),
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/api/health")
+def api_health():
+    return jsonify({"ready": SERVICE.ready})
 
 
 @app.route("/api/overview")
@@ -84,20 +90,42 @@ def api_bulletin():
     cl = float(request.args.get("cl", 0.1))
     return jsonify(SERVICE.bulletin(ts, lead, cl))
 
-
-def _ensure_ready():
-    if not SERVICE.ready:
-        print("Training models (one-time startup, please wait) ...", flush=True)
-        SERVICE.build()
-        print("Models ready.", flush=True)
+_build_lock = threading.Lock()
+_build_started = False
 
 
-# Train on import so WSGI servers (e.g. gunicorn on Render) serve a ready app.
-_ensure_ready()
+@app.before_request
+def _gate_until_ready():
+    # Let the page, static assets and health check through while models train;
+    # data endpoints answer 503 so the front-end can show a warming-up state.
+    p = request.path
+    if p.startswith("/api/") and p != "/api/health" and not SERVICE.ready:
+        return jsonify({"status": "warming_up"}), 503
+
+
+def _background_build():
+    print("Training models (background startup) ...", flush=True)
+    SERVICE.build()
+    print("Models ready.", flush=True)
+
+
+def _start_build():
+    global _build_started
+    with _build_lock:
+        if _build_started:
+            return
+        _build_started = True
+    threading.Thread(target=_background_build, daemon=True).start()
+
+
+# Kick off training in the background so the web server binds its port
+# immediately (Render's port scan then succeeds); the app serves a warming-up
+# state until the models are ready.
+_start_build()
 
 
 def main():
-    print("Ready. Open http://127.0.0.1:5000")
+    print("Starting server on http://0.0.0.0:5000 (models train in background)")
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
 

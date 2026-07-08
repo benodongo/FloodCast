@@ -8,8 +8,9 @@ services:
     # The Flask app lives in the prototype/ sub-folder.
     rootDir: prototype
     buildCommand: pip install -r requirements.txt
-    # Models train once on import (preload), then a single worker serves the app.
-    startCommand: gunicorn app.server:app --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --preload
+    # Bind the port immediately; models train in a background thread so Render's
+    # port scan succeeds. A single worker keeps memory within the free plan.
+    startCommand: gunicorn app.server:app --bind 0.0.0.0:$PORT --workers 1 --timeout 300
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.6"

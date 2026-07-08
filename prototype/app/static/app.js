@@ -337,6 +337,18 @@ async function toggleTheme() {
 }
 
 /* ---------------- Init ---------------- */
+async function waitReady() {
+  for (let i = 0; ; i++) {
+    try {
+      const h = await api("/api/health");
+      if (h && h.ready) return;
+    } catch (e) { /* server still starting */ }
+    const dots = ".".repeat((i % 3) + 1);
+    $("#status").innerHTML = `<span class="dot"></span> Warming up — training models${dots}`;
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+}
+
 function refreshEventViews() { loadTimeseries(); loadAnalytics(); loadMap(); loadBulletin(); }
 $("#event-select").addEventListener("change", refreshEventViews);
 $("#lead-select").addEventListener("change", refreshEventViews);
@@ -360,6 +372,7 @@ $("#copy-bulletin").addEventListener("click", async () => {
 });
 
 (async function init() {
+  await waitReady();
   await loadOverview();
   await loadEvents();
   await loadTimeseries();
