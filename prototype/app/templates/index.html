@@ -4,6 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>South C · Flood Risk Forecast</title>
+  <!-- Set theme before paint to avoid flash (light is default) -->
+  <script>
+    (function () {
+      try { if (localStorage.getItem("fc-theme") === "dark") document.documentElement.classList.add("dark"); } catch (e) {}
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: { extend: { fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+        colors: { accent: "#4f8cff", accent2: "#7c5cff" } } },
+    };
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -11,18 +25,18 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
-<body>
-  <div class="app">
+<body class="font-sans min-h-screen bg-slate-100 text-slate-900 dark:bg-[#0b1020] dark:text-slate-100 antialiased">
+  <div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] min-h-screen">
     <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="brand">
+    <aside class="lg:sticky lg:top-0 lg:h-screen flex flex-col gap-7 px-4 py-6 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-[#232c4d] bg-white/80 dark:bg-[#10162e]/90 backdrop-blur">
+      <div class="flex items-center gap-3">
         <div class="brand-mark">◆</div>
         <div>
-          <div class="brand-title">FloodCast</div>
-          <div class="brand-sub">South C · Nairobi</div>
+          <div class="font-extrabold text-lg tracking-tight">FloodCast</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">South C · Nairobi</div>
         </div>
       </div>
-      <nav class="nav">
+      <nav class="flex flex-col gap-1">
         <a class="nav-item active" data-view="dashboard"><span>▦</span> Dashboard</a>
         <a class="nav-item" data-view="forecast"><span>◈</span> Live Forecast</a>
         <a class="nav-item" data-view="ensemble"><span>◇</span> Ensemble &amp; Uncertainty</a>
@@ -31,26 +45,30 @@
         <a class="nav-item" data-view="performance"><span>◔</span> Model Performance</a>
         <a class="nav-item" data-view="decision"><span>⚖</span> Decision Value</a>
       </nav>
-      <div class="sidebar-foot">
-        <div class="pill warn">Synthetic labels</div>
-        <p>Flood targets are SWMM-style synthetic. Results demonstrate method &amp; calibration, not validated real-world skill.</p>
+      <div class="mt-auto text-[11.5px] leading-relaxed text-slate-500 dark:text-slate-400">
+        <span class="pill warn">Synthetic labels</span>
+        <p class="mt-1">Flood targets are SWMM-style synthetic. Results demonstrate method &amp; calibration, not validated real-world skill.</p>
       </div>
     </aside>
 
     <!-- Main -->
-    <main class="main">
-      <header class="topbar">
+    <main class="px-6 lg:px-8 py-7 pb-16 max-w-[1500px] w-full">
+      <header class="flex justify-between items-start gap-4 mb-6 flex-wrap">
         <div>
-          <h1 id="view-title">Dashboard</h1>
+          <h1 id="view-title" class="m-0 text-[26px] font-extrabold tracking-tight">Dashboard</h1>
           <p id="view-sub" class="muted">Rainfall-driven city flood-risk forecast · hybrid GRC + machine learning</p>
         </div>
-        <div class="topbar-right">
+        <div class="flex items-center gap-3">
+          <button id="theme-toggle" type="button" aria-label="Toggle dark mode"
+            class="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-[#2a3352] bg-white dark:bg-[#141b34] px-3.5 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1a2242] transition">
+            <span id="theme-icon">🌙</span><span id="theme-label" class="hidden sm:inline">Dark</span>
+          </button>
           <div class="status" id="status"><span class="dot"></span> Loading…</div>
         </div>
       </header>
 
       <!-- KPI cards -->
-      <section class="kpis" id="kpis"></section>
+      <section class="grid gap-4 mb-6 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]" id="kpis"></section>
 
       <!-- Dashboard / Forecast view -->
       <section class="panel" id="panel-forecast">

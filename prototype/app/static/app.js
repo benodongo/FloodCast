@@ -2,9 +2,16 @@
 const $ = (s) => document.querySelector(s);
 const fmt = (v, d = 2) => (v === null || v === undefined || Number.isNaN(v)) ? "–" : Number(v).toFixed(d);
 const COL = { accent: "#4f8cff", accent2: "#7c5cff", good: "#2fd98a", warn: "#ffb020", danger: "#ff5d73", muted: "#8a94b4" };
-Chart.defaults.color = "#8a94b4";
 Chart.defaults.font.family = "Inter, sans-serif";
-Chart.defaults.borderColor = "rgba(140,160,220,0.10)";
+
+/* ---------------- Theme helpers ---------------- */
+function isDark() { return document.documentElement.classList.contains("dark"); }
+function truthColor() { return isDark() ? "#e8ecf7" : "#334155"; }
+function applyChartTheme() {
+  Chart.defaults.color = isDark() ? "#8a94b4" : "#64748b";
+  Chart.defaults.borderColor = isDark() ? "rgba(140,160,220,0.10)" : "rgba(100,116,139,0.16)";
+}
+applyChartTheme();
 
 let charts = {};
 let EVENTS = [];
@@ -75,7 +82,7 @@ async function loadTimeseries() {
         { type: "line", label: "Forecast mean", data: d.mu, yAxisID: "y",
           borderColor: COL.danger, borderWidth: 2, pointRadius: 0, tension: 0.25, order: 2 },
         { type: "line", label: "Truth (synthetic)", data: d.truth, yAxisID: "y",
-          borderColor: "#e8ecf7", borderWidth: 1.6, pointRadius: 0, tension: 0.25, order: 1 },
+          borderColor: truthColor(), borderWidth: 1.6, pointRadius: 0, tension: 0.25, order: 1 },
         { type: "line", label: "Flood threshold", data: thrLine, yAxisID: "y",
           borderColor: COL.warn, borderDash: [6, 5], borderWidth: 1.2, pointRadius: 0, order: 3 },
       ],
@@ -231,7 +238,17 @@ async function loadMetrics() {
 }
 
 /* ---------------- Risk map + bulletin ---------------- */
-let leafletMap = null, markerLayer = null, currentBulletin = "";
+let leafletMap = null, markerLayer = null, tileLayer = null, currentBulletin = "";
+
+function setMapTiles() {
+  if (!leafletMap) return;
+  if (tileLayer) leafletMap.removeLayer(tileLayer);
+  const url = isDark()
+    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+  tileLayer = L.tileLayer(url, { maxZoom: 19 }).addTo(leafletMap);
+  tileLayer.bringToBack();
+}
 
 async function loadMap() {
   const ei = +$("#event-select").value || 0;
@@ -242,8 +259,7 @@ async function loadMap() {
   if (!leafletMap) {
     leafletMap = L.map("map", { zoomControl: true, attributionControl: false })
       .setView([d.center.lat, d.center.lon], 14);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      { maxZoom: 19 }).addTo(leafletMap);
+    setMapTiles();
     markerLayer = L.layerGroup().addTo(leafletMap);
   }
   markerLayer.clearLayers();
@@ -298,12 +314,36 @@ document.querySelectorAll(".nav-item").forEach((el) => {
   });
 });
 
+/* ---------------- Theme toggle ---------------- */
+function setThemeUI() {
+  const d = isDark();
+  const icon = $("#theme-icon"), label = $("#theme-label");
+  if (icon) icon.textContent = d ? "☀️" : "🌙";
+  if (label) label.textContent = d ? "Light" : "Dark";
+}
+async function toggleTheme() {
+  const d = !isDark();
+  document.documentElement.classList.toggle("dark", d);
+  try { localStorage.setItem("fc-theme", d ? "dark" : "light"); } catch (e) {}
+  setThemeUI();
+  applyChartTheme();
+  setMapTiles();
+  await loadTimeseries();
+  await loadMetrics();
+  await loadAnalytics();
+  if (charts.mc) await runEnsemble();
+  await loadMap();
+  await loadBulletin();
+}
+
 /* ---------------- Init ---------------- */
 function refreshEventViews() { loadTimeseries(); loadAnalytics(); loadMap(); loadBulletin(); }
 $("#event-select").addEventListener("change", refreshEventViews);
 $("#lead-select").addEventListener("change", refreshEventViews);
 $("#asset-select").addEventListener("change", () => { loadAnalytics(); loadBulletin(); });
 $("#run-ensemble").addEventListener("click", runEnsemble);
+$("#theme-toggle").addEventListener("click", toggleTheme);
+setThemeUI();
 
 $("#dl-bulletin").addEventListener("click", () => {
   const blob = new Blob([currentBulletin], { type: "text/plain" });
