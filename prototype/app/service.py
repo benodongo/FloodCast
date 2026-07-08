@@ -166,6 +166,18 @@ class FloodForecastService:
             setattr(self, attr, value)
         return True
 
+    def load_cached(self) -> bool:
+        """Synchronously restore a committed artifact without training.
+
+        Returns True if the pretrained state was loaded and the service is ready.
+        """
+        if self.ready:
+            return True
+        if self._load_cache():
+            self.ready = True
+            return True
+        return False
+
     # ------------------------------------------------------------------ #
     # Queries
     # ------------------------------------------------------------------ #

@@ -132,10 +132,26 @@ def _start_build():
     threading.Thread(target=_background_build, daemon=True).start()
 
 
-# Kick off training in the background so the web server binds its port
-# immediately (Render's port scan then succeeds); the app serves a warming-up
-# state until the models are ready.
-_start_build()
+def _startup():
+    # Fast path: load the committed pretrained artifact synchronously so the
+    # worker is READY before it accepts any request. The gunicorn master has
+    # already bound the port, so this short (~seconds) load does not delay
+    # Render's port detection, and it avoids any thread-visibility race.
+    try:
+        if SERVICE.load_cached():
+            _build_status["phase"] = "ready"
+            print("Loaded pretrained models (startup).", flush=True)
+            return
+    except Exception as exc:  # noqa: BLE001 - fall back to training
+        print(f"Cache load failed ({exc}); falling back to training.", flush=True)
+    # Slow path (no/incompatible artifact): train in a background thread so the
+    # port stays responsive while the front-end shows a warming-up state.
+    _start_build()
+
+
+# Prepare models on startup (synchronous load when the artifact is present,
+# background training otherwise).
+_startup()
 
 
 def main():
