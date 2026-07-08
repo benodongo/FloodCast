@@ -54,9 +54,15 @@ straight from git:
 3. It runs `pip install -r requirements.txt` (in `prototype/`) and starts
    `gunicorn app.server:app` bound to `$PORT`.
 
-Models are trained once on import (gunicorn `--preload`), so the app serves a
-ready dashboard. Note: training is memory-intensive; the free plan (512 MB) may
-be tight — bump the plan if the worker is killed during boot.
+On boot the server loads a committed **pretrained model artifact**
+([`prototype/app/artifacts/service_state.joblib`](prototype/app/artifacts/service_state.joblib)),
+so the dashboard is ready in seconds without retraining. The port binds
+immediately (models load in a background thread); data endpoints return a
+warming-up state until ready. If the artifact's library versions don't match
+the runtime, the app falls back to training once.
+
+To regenerate the artifact after any model/data change, run `python -m app.service`
+from the `prototype` folder and commit the updated file.
 
 ## What's inside
 
