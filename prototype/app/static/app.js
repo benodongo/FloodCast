@@ -339,12 +339,19 @@ async function toggleTheme() {
 /* ---------------- Init ---------------- */
 async function waitReady() {
   for (let i = 0; ; i++) {
+    let phase = null, error = null;
     try {
       const h = await api("/api/health");
       if (h && h.ready) return;
+      phase = h && h.phase;
+      error = h && h.error;
     } catch (e) { /* server still starting */ }
-    const dots = ".".repeat((i % 3) + 1);
-    $("#status").innerHTML = `<span class="dot"></span> Warming up — training models${dots}`;
+    if (phase === "error") {
+      $("#status").innerHTML = `<span class="dot"></span> Startup failed — ${error || "see server logs"}`;
+    } else {
+      const dots = ".".repeat((i % 3) + 1);
+      $("#status").innerHTML = `<span class="dot"></span> Warming up — loading models${dots}`;
+    }
     await new Promise((r) => setTimeout(r, 2500));
   }
 }

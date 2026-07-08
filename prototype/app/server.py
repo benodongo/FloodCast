@@ -25,7 +25,11 @@ def index():
 
 @app.route("/api/health")
 def api_health():
-    return jsonify({"ready": SERVICE.ready})
+    return jsonify({
+        "ready": SERVICE.ready,
+        "phase": _build_status["phase"],
+        "error": _build_status["error"],
+    })
 
 
 @app.route("/api/overview")
@@ -92,6 +96,7 @@ def api_bulletin():
 
 _build_lock = threading.Lock()
 _build_started = False
+_build_status = {"phase": "starting", "error": None}
 
 
 @app.before_request
@@ -104,9 +109,18 @@ def _gate_until_ready():
 
 
 def _background_build():
-    print("Training models (background startup) ...", flush=True)
-    SERVICE.build()
-    print("Models ready.", flush=True)
+    try:
+        print("Preparing models (background startup) ...", flush=True)
+        _build_status["phase"] = "building"
+        SERVICE.build()
+        _build_status["phase"] = "ready"
+        print("Models ready.", flush=True)
+    except Exception as exc:  # noqa: BLE001 - surface any startup failure
+        import traceback
+        _build_status["phase"] = "error"
+        _build_status["error"] = f"{type(exc).__name__}: {exc}"
+        traceback.print_exc()
+        print(f"BUILD FAILED: {exc}", flush=True)
 
 
 def _start_build():
