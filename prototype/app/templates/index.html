@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>South C · Flood Risk Forecast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">◆</div>
+        <div>
+          <div class="brand-title">FloodCast</div>
+          <div class="brand-sub">South C · Nairobi</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="nav-item active" data-view="dashboard"><span>▦</span> Dashboard</a>
+        <a class="nav-item" data-view="forecast"><span>◈</span> Live Forecast</a>
+        <a class="nav-item" data-view="ensemble"><span>◇</span> Ensemble &amp; Uncertainty</a>
+        <a class="nav-item" data-view="analytics"><span>◎</span> Decision Support</a>
+        <a class="nav-item" data-view="map"><span>⌖</span> Risk Map &amp; Bulletin</a>
+        <a class="nav-item" data-view="performance"><span>◔</span> Model Performance</a>
+        <a class="nav-item" data-view="decision"><span>⚖</span> Decision Value</a>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="pill warn">Synthetic labels</div>
+        <p>Flood targets are SWMM-style synthetic. Results demonstrate method &amp; calibration, not validated real-world skill.</p>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="view-title">Dashboard</h1>
+          <p id="view-sub" class="muted">Rainfall-driven city flood-risk forecast · hybrid GRC + machine learning</p>
+        </div>
+        <div class="topbar-right">
+          <div class="status" id="status"><span class="dot"></span> Loading…</div>
+        </div>
+      </header>
+
+      <!-- KPI cards -->
+      <section class="kpis" id="kpis"></section>
+
+      <!-- Dashboard / Forecast view -->
+      <section class="panel" id="panel-forecast">
+        <div class="panel-head">
+          <div>
+            <h2>Probabilistic flood forecast</h2>
+            <p class="muted">Observed rainfall, synthetic truth and the calibrated hybrid forecast with a 90% interval.</p>
+          </div>
+          <div class="controls">
+            <label>Event
+              <select id="event-select"></select>
+            </label>
+            <label>Lead
+              <select id="lead-select">
+                <option value="1">1 h</option><option value="2">2 h</option>
+                <option value="3">3 h</option><option value="4">4 h</option>
+                <option value="5">5 h</option><option value="6">6 h</option>
+              </select>
+            </label>
+            <button id="run-ensemble" class="btn">Run 5 000-draw ensemble</button>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="tsChart"></canvas></div>
+        <div class="chart-wrap small"><canvas id="probChart"></canvas></div>
+      </section>
+
+      <!-- Ensemble view -->
+      <section class="grid-2">
+        <div class="panel" id="panel-ensemble">
+          <div class="panel-head"><h2>Monte-Carlo predictive ensemble</h2></div>
+          <div id="mc-stats" class="stat-row muted">Select an event and run the ensemble.</div>
+          <div class="chart-wrap"><canvas id="mcChart"></canvas></div>
+        </div>
+        <div class="panel" id="panel-var">
+          <div class="panel-head"><h2>Uncertainty decomposition</h2></div>
+          <p class="muted">Total predictive variance split into aleatory (data/forcing) and epistemic (model/parameter).</p>
+          <div class="chart-wrap"><canvas id="varChart"></canvas></div>
+        </div>
+      </section>
+
+      <!-- Analytics / Decision Support -->
+      <section class="panel" id="panel-analytics">
+        <div class="panel-head">
+          <div>
+            <h2>Decision support &amp; analytics</h2>
+            <p class="muted">How the forecast is used: alert level, lead-time risk profile and the cost–loss decision for the selected event.</p>
+          </div>
+          <div class="controls">
+            <label>Response / asset
+              <select id="asset-select">
+                <option value="0.05">Sandbags &amp; crew callout · low cost</option>
+                <option value="0.1" selected>Road closure &amp; signage</option>
+                <option value="0.2">Pump deployment</option>
+                <option value="0.3">Barrier mobilisation</option>
+                <option value="0.5">Evacuation · high cost</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div id="alert-banner" class="alert-banner">…</div>
+        <div class="risk-profile" id="risk-profile"></div>
+        <div class="stat-row" id="decision-cards"></div>
+        <div class="grid-2" style="margin-top:6px">
+          <div>
+            <h3 class="sub">Verification on hold-out test set (at this decision threshold)</h3>
+            <table class="tbl" id="contingency-table"></table>
+          </div>
+          <div>
+            <h3 class="sub">What drives the forecast (explainability)</h3>
+            <div class="chart-wrap"><canvas id="driversChart"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Risk map + bulletin -->
+      <section class="grid-2" id="panel-map-wrap">
+        <div class="panel" id="panel-map">
+          <div class="panel-head">
+            <div><h2>Live chokepoint risk map</h2>
+              <p class="muted">Per-location flood risk across South C for the selected event and lead time.</p></div>
+          </div>
+          <div id="map"></div>
+          <div id="map-legend" class="map-legend"></div>
+        </div>
+        <div class="panel" id="panel-bulletin">
+          <div class="panel-head">
+            <div><h2>Alert bulletin</h2>
+              <p class="muted">Auto-generated, printable operator bulletin.</p></div>
+            <div class="controls">
+              <button id="copy-bulletin" class="btn ghost">Copy</button>
+              <button id="dl-bulletin" class="btn">Download .txt</button>
+            </div>
+          </div>
+          <pre id="bulletin-text" class="bulletin">…</pre>
+        </div>
+      </section>
+
+      <!-- Performance + decision -->
+      <section class="grid-2">
+        <div class="panel" id="panel-metrics">
+          <div class="panel-head"><h2>Forecast skill by lead time</h2></div>
+          <table class="tbl" id="metrics-table"></table>
+        </div>
+        <div class="panel" id="panel-rev">
+          <div class="panel-head"><h2>Relative economic value</h2></div>
+          <p class="muted">Decision value vs climatology across cost/loss ratios (cost–loss analysis).</p>
+          <div class="chart-wrap"><canvas id="revChart"></canvas></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
