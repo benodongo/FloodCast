@@ -1,6 +1,7 @@
 """Flask web server for the South C flood-forecast dashboard."""
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -84,11 +85,21 @@ def api_bulletin():
     return jsonify(SERVICE.bulletin(ts, lead, cl))
 
 
+def _ensure_ready():
+    if not SERVICE.ready:
+        print("Training models (one-time startup, please wait) ...", flush=True)
+        SERVICE.build()
+        print("Models ready.", flush=True)
+
+
+# Train on import so WSGI servers (e.g. gunicorn on Render) serve a ready app.
+_ensure_ready()
+
+
 def main():
-    print("Training models (one-time startup, please wait) ...")
-    SERVICE.build()
     print("Ready. Open http://127.0.0.1:5000")
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 
 if __name__ == "__main__":

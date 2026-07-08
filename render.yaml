@@ -1,0 +1,15 @@
+# Render.com Blueprint — deploys the FloodCast dashboard straight from git.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: floodcast
+    runtime: python
+    plan: free
+    # The Flask app lives in the prototype/ sub-folder.
+    rootDir: prototype
+    buildCommand: pip install -r requirements.txt
+    # Models train once on import (preload), then a single worker serves the app.
+    startCommand: gunicorn app.server:app --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --preload
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"

@@ -39,6 +39,8 @@ class FloodForecastService:
     # Startup / training
     # ------------------------------------------------------------------ #
     def build(self) -> None:
+        if self.ready:
+            return
         self.forcing = build_forcing()
         self.truth = generate_truth(self.forcing)
         self.grc = grc_frame(self.forcing)

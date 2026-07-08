@@ -43,6 +43,21 @@ python -m app.server
 The server trains all models once at startup (~30 s) and then serves fast JSON
 queries.
 
+## Deploy on Render.com
+
+The repo includes a [`render.yaml`](render.yaml) blueprint, so Render can deploy
+straight from git:
+
+1. Push this repo to GitHub (already at `benodongo/FloodCast`).
+2. On Render → **New → Blueprint**, point it at the repo. Render reads
+   `render.yaml` and provisions a Python web service.
+3. It runs `pip install -r requirements.txt` (in `prototype/`) and starts
+   `gunicorn app.server:app` bound to `$PORT`.
+
+Models are trained once on import (gunicorn `--preload`), so the app serves a
+ready dashboard. Note: training is memory-intensive; the free plan (512 MB) may
+be tight — bump the plan if the worker is killed during boot.
+
 ## What's inside
 
 **Modelling pipeline** (`prototype/src/`)
