@@ -311,7 +311,37 @@ document.querySelectorAll(".nav-item").forEach((el) => {
     $("#view-sub").textContent = TITLES[v][1];
     document.querySelector(VIEW_MAP[v])?.scrollIntoView({ behavior: "smooth", block: "start" });
     if (v === "map" && leafletMap) setTimeout(() => leafletMap.invalidateSize(), 150);
+    closeSidebar();
   });
+});
+
+/* ---------------- Mobile sidebar ---------------- */
+function openSidebar() {
+  const sb = $("#sidebar"), bd = $("#sidebar-backdrop"), tg = $("#menu-toggle");
+  sb?.classList.remove("-translate-x-full");
+  bd?.classList.remove("opacity-0", "pointer-events-none");
+  tg?.setAttribute("aria-expanded", "true");
+}
+function closeSidebar() {
+  const sb = $("#sidebar"), bd = $("#sidebar-backdrop"), tg = $("#menu-toggle");
+  // Only collapse on small screens (drawer mode)
+  if (window.matchMedia("(min-width: 1024px)").matches) return;
+  sb?.classList.add("-translate-x-full");
+  bd?.classList.add("opacity-0", "pointer-events-none");
+  tg?.setAttribute("aria-expanded", "false");
+}
+function toggleSidebar() {
+  const sb = $("#sidebar");
+  if (sb?.classList.contains("-translate-x-full")) openSidebar(); else closeSidebar();
+}
+$("#menu-toggle")?.addEventListener("click", toggleSidebar);
+$("#sidebar-backdrop")?.addEventListener("click", closeSidebar);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSidebar(); });
+window.addEventListener("resize", () => {
+  // Reset drawer state when switching to desktop layout
+  if (window.matchMedia("(min-width: 1024px)").matches) {
+    $("#sidebar-backdrop")?.classList.add("opacity-0", "pointer-events-none");
+  }
 });
 
 /* ---------------- Theme toggle ---------------- */

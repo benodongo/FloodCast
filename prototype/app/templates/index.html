@@ -27,8 +27,10 @@
 </head>
 <body class="font-sans min-h-screen bg-slate-100 text-slate-900 dark:bg-[#0b1020] dark:text-slate-100 antialiased">
   <div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] min-h-screen">
+    <!-- Mobile sidebar backdrop -->
+    <div id="sidebar-backdrop" class="fixed inset-0 z-30 bg-slate-900/40 opacity-0 pointer-events-none transition-opacity lg:hidden"></div>
     <!-- Sidebar -->
-    <aside class="lg:sticky lg:top-0 lg:h-screen flex flex-col gap-7 px-4 py-6 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-[#232c4d] bg-white/80 dark:bg-[#10162e]/90 backdrop-blur">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-[264px] -translate-x-full transition-transform duration-200 overflow-y-auto lg:translate-x-0 lg:z-auto lg:sticky lg:top-0 lg:h-screen flex flex-col gap-7 px-4 py-6 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-[#232c4d] bg-white/95 dark:bg-[#10162e]/95 backdrop-blur">
       <div class="flex items-center gap-3">
         <div class="brand-mark">◆</div>
         <div>
@@ -54,9 +56,13 @@
     <!-- Main -->
     <main class="px-6 lg:px-8 py-7 pb-16 max-w-[1500px] w-full">
       <header class="flex justify-between items-start gap-4 mb-6 flex-wrap">
-        <div>
-          <h1 id="view-title" class="m-0 text-[26px] font-extrabold tracking-tight">Dashboard</h1>
-          <p id="view-sub" class="muted">Rainfall-driven city flood-risk forecast · hybrid GRC + machine learning</p>
+        <div class="flex items-start gap-3">
+          <button id="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false"
+            class="lg:hidden inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-[#2a3352] bg-white dark:bg-[#141b34] w-10 h-10 text-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1a2242] transition shrink-0">☰</button>
+          <div>
+            <h1 id="view-title" class="m-0 text-[26px] font-extrabold tracking-tight">Dashboard</h1>
+            <p id="view-sub" class="muted">Rainfall-driven city flood-risk forecast · hybrid GRC + machine learning</p>
+          </div>
         </div>
         <div class="flex items-center gap-3">
           <button id="theme-toggle" type="button" aria-label="Toggle dark mode"
